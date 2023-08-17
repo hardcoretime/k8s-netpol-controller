@@ -1,7 +1,9 @@
 import concurrent.futures
 import logging
 import os
-# import time # uncomment it and line 50 if you want to see how threads work with events
+# uncomment package time and line 50
+# if you want to see how threads work with events
+# import time
 
 from kubernetes import client, config, watch
 from kubernetes.client import (Configuration, V1LabelSelector, V1NetworkPolicy,
@@ -16,7 +18,9 @@ class KubernetesClient:
         self.configuration.verify_ssl = False
 
         if env == 'local':
-            config.load_kube_config(config_file=f'{os.getenv("HOME")}/.kube/config', client_configuration=self.configuration)
+            config.load_kube_config(
+                config_file=f'{os.getenv("HOME")}/.kube/config', client_configuration=self.configuration
+            )
         else:
             config.load_incluster_config(client_configuration=self.configuration)
 
@@ -29,7 +33,6 @@ class KubernetesClient:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for event in w.stream(self.apps_v1_client.list_namespaced_deployment, namespace=namespace):
                 executor.submit(self.handle_event, event, namespace)
-            
 
     def handle_event(self, event, namespace) -> None:
         event_type = event.get('type', None)
@@ -40,26 +43,30 @@ class KubernetesClient:
             event_obj_kind = event_obj.kind
         if event_type == 'ADDED' and event_obj_kind == 'Deployment':
             try:
-                netpol = self.networking_v1_api.read_namespaced_network_policy(name=event_obj_name, namespace=namespace)
+                netpol = self.networking_v1_api.read_namespaced_network_policy(event_obj_name, namespace)
                 if netpol:
-                    logging.info(f'deployment: {event_obj_name} namespace: {namespace} has netpol: {netpol.metadata.name}')
+                    logging.info(
+                        f'deployment: {event_obj_name} namespace: {namespace} has netpol: {netpol.metadata.name}'
+                    )
             except ApiException as e:
                 if e.status == 404:
                     logging.info(f'deployment: {event_obj_name} namespace: {namespace} has not netpol')
                     netpol = construct_default_netpol(event_obj_name)
                     self.networking_v1_api.create_namespaced_network_policy(body=netpol, namespace=namespace)
                     # time.sleep(10)
-                    logging.info(f'netpol is created: namespace: {event_obj.metadata.namespace} name: {netpol.metadata.name}')
+                    logging.info(
+                        f'netpol is created: namespace: {event_obj.metadata.namespace} name: {netpol.metadata.name}'
+                    )
                 else:
                     logging.info(e)
 
 
 def construct_default_netpol(name: str) -> V1NetworkPolicy:
-    policy_types=['Ingress', 'Egress']
-    pod_selector=V1LabelSelector(match_labels={'app': name})
-    spec=V1NetworkPolicySpec(pod_selector=pod_selector, policy_types=policy_types)
-    metadata=V1ObjectMeta(name=name)
-    
+    policy_types = ['Ingress', 'Egress']
+    pod_selector = V1LabelSelector(match_labels={'app': name})
+    spec = V1NetworkPolicySpec(pod_selector=pod_selector, policy_types=policy_types)
+    metadata = V1ObjectMeta(name=name)
+
     return V1NetworkPolicy(
         spec=spec,
         api_version="networking.k8s.io/v1",

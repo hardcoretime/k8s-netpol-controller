@@ -7,6 +7,7 @@ from kube_client.client import KubernetesClient
 urllib3.disable_warnings()
 logging.basicConfig(level=logging.INFO)
 
+
 def main() -> None:
     env = os.getenv('ENVIRONMENT')
     client = KubernetesClient(env=env)
